@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Debt Payoff Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f7f7f7;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input, .slider {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+        }
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+        .total {
+            text-align: center;
+            font-size: 20px;
+            margin-top: 30px;
+        }
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .divider {
+            height: 2px;
+            background-color: #ccc;
+            margin: 20px 0;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+        .input-container {
+            display: flex;
+            flex-direction: column;
+        }
+        .note {
+            display: block;
+            margin-top: 10px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
+</head>
+<body>
+    <h1>Student Debt Payoff Simulator</h1>
+
+
+    <div class="section">
+        <table id="debtTable">
+            <thead>
+                <tr>
+                    <th>Current or Expected Debt Balance ($)</th>
+                    <th>Interest Rate on Debt (%)</th>
+                    <th>Term (Months)</th>
+                    <th>Monthly Payment ($)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="number" class="debt-balance" value="5000" placeholder="Enter debt balance"></td>
+                    <td><input type="number" class="debt-rate" value="3" placeholder="Enter rate"></td>
+                    <td><input type="number" class="debt-term" value="60" placeholder="Enter term"></td>
+                    <td class="monthly-payment">$0.00</td>
+                    <td><button onclick="computeMonthlyPayment(this)">Calculate Monthly Payment</button> <button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button onclick="addRow()">Add Row</button>
+        <small class="note">Note: Please enter your student loan information. This will help us determine your monthly payments. You can add multiple loans, and we will calculate the total monthly payments for you.
+        </small>
+    </br></br>
+        <b><span id="total-monthly-payments">Sum of All Monthly Payments: $0.00</span></b>
+    </div>
+
+
+    <div class="divider"></div>
+
+
+    <div class="section">
+        <label for="monthly-income">Expected Monthly Income ($):</label>
+        <div class="input-container">
+            <input type="number" id="monthly-income" value="1000" placeholder="Enter your expected monthly income" oninput="updateIncomeSlider()">
+            <input type="range" id="income-slider" class="slider" min="0" max="10000" step="100" value="1000" oninput="updateIncomeInput()">
+        </div>
+        <br/>
+        <label for="monthly-spending">Expected Monthly Spending ($):</label>
+        <div class="input-container">
+            <input type="number" id="monthly-spending" value="1000" placeholder="Enter your expected monthly spending" oninput="updateSpendingSlider()">
+            <input type="range" id="spending-slider" class="slider" min="0" max="10000" step="100" value="1000" oninput="updateSpendingInput()">
+        </div>
+        <br/>
+        <b><label for="total-monthly-spending">Expected Total Monthly Spending: <span id="total-monthly-spending">$0.00</span></label></b>
+        <small class="note">Note: This figure is the sum of your "Expected Monthly Spending" and the total expected monthly loan payments calculated above.</small>
+    </div>
+    <div class="section">
+        <b>Monthly Surplus: <span id="monthly-surplus">$0.00</span></b>
+        <br/>
+        <small class="note">Note: The monthly surplus is calculated to be applied directly to the principal of your debt.</small>
+    </div>
+    <div class="divider"></div>
+    <div class="section chart-container">
+        <button onclick="displayChart(false)">Show Debt Payoff Chart (Without Surplus)</button>
+        <button onclick="displayChart(true)">Show Debt Payoff Chart (With Surplus)</button>
+    </div>
+    <div class="section chart-container">
+        <canvas id="debtChart" width="800" height="400"></canvas>
+    </div>
+
+
+    <script>
+        let debtChart = null;
+
+
+        function computeMonthlyPayment(button) {
+            const row = button.parentElement.parentElement;
+            const balance = parseFloat(row.querySelector('.debt-balance').value);
+            const rate = parseFloat(row.querySelector('.debt-rate').value) / 100 / 12;
+            const term = parseInt(row.querySelector('.debt-term').value);
+            const monthlyPayment = (balance * rate) / (1 - Math.pow(1 + rate, -term));
+            row.querySelector('.monthly-payment').innerText = `$${monthlyPayment.toFixed(2)}`;
+
+
+            sumAllMonthlyPayments();
+        }
+
+
+        function addRow() {
+            const table = document.getElementById('debtTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><input type="number" class="debt-balance" placeholder="Enter debt balance"></td>
+                <td><input type="number" class="debt-rate" placeholder="Enter rate"></td>
+                <td><input type="number" class="debt-term" placeholder="Enter term"></td>
+                <td class="monthly-payment">$0.00</td>
+                <td><button onclick="computeMonthlyPayment(this)">Compute Monthly Payment</button> <button onclick="deleteRow(this)">Delete</button></td>
+            `;
+        }
+
+
+        function deleteRow(button) {
+            const row = button.parentElement.parentElement;
+            row.parentElement.removeChild(row);
+            sumAllMonthlyPayments();
+        }
+
+
+        function sumAllMonthlyPayments() {
+            let total = 0;
+            const payments = document.querySelectorAll('.monthly-payment');
+            payments.forEach(payment => {
+                total += parseFloat(payment.innerText.replace('$', ''));
+            });
+            document.getElementById('total-monthly-payments').innerText = `Sum of All Monthly Payments: $${total.toFixed(2)}`;
+            updateTotalSpending();
+        }
+
+
+        function updateIncomeSlider() {
+            const incomeInput = document.getElementById('monthly-income');
+            document.getElementById('income-slider').value = incomeInput.value;
+            computeMonthlySurplus();
+        }
+
+
+        function updateIncomeInput() {
+            const incomeSlider = document.getElementById('income-slider');
+            document.getElementById('monthly-income').value = incomeSlider.value;
+            computeMonthlySurplus();
+        }
+
+
+        function updateSpendingSlider() {
+            const spendingInput = document.getElementById('monthly-spending');
+            document.getElementById('spending-slider').value = spendingInput.value;
+            updateTotalSpending();
+        }
+
+
+        function updateSpendingInput() {
+            const spendingSlider = document.getElementById('spending-slider');
+            document.getElementById('monthly-spending').value = spendingSlider.value;
+            updateTotalSpending();
+        }
+
+
+        function updateTotalSpending() {
+            const preSpending = parseFloat(document.getElementById('monthly-spending').value || 0);
+            const allPayments = parseFloat(document.getElementById('total-monthly-payments').innerText.replace('Sum of All Monthly Payments: $', '') || 0);
+            const totalSpending = preSpending + allPayments;
+            document.getElementById('total-monthly-spending').innerText = `$${totalSpending.toFixed(2)}`;
+            computeMonthlySurplus();
+        }
+
+
+        function computeMonthlySurplus() {
+            const income = parseFloat(document.getElementById('monthly-income').value || 0);
+            const totalSpending = parseFloat(document.getElementById('total-monthly-spending').innerText.replace('$', '') || 0);
+            const surplus = income - totalSpending;
+            const surplusElement = document.getElementById('monthly-surplus');
+            surplusElement.innerText = `$${surplus.toFixed(2)}`;
+            surplusElement.style.color = surplus < 0 ? 'red' : 'black';
+        }
+
+
+        function createChart(data, surplusData) {
+            const ctx = document.getElementById('debtChart').getContext('2d');
+            if (debtChart) {
+                debtChart.destroy();
+            }
+            debtChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: data.term + 1 }, (_, i) => i), // Include 0 for initial balance
+                    datasets: [{
+                        label: 'Debt Balance (Without Surplus)',
+                        data: data.balance,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    },
+                    {
+                        label: 'Debt Balance (With Surplus)',
+                        data: surplusData.balance,
+                        borderColor: 'rgba(192, 75, 75, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+
+        function calculateDebtData(balance, rate, term, extraPayment = 0) {
+            let monthlyRate = rate / 12;
+            let data = { balance: [balance], term: term }; // Start with the initial balance
+            let currentBalance = balance;
+
+
+            for (let month = 1; month <= term; month++) {
+                let interest = currentBalance * monthlyRate;
+                let principal = (balance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -term)) - interest + extraPayment;
+                currentBalance = currentBalance - principal;
+                data.balance.push(currentBalance > 0 ? currentBalance : 0);
+            }
+            return data;
+        }
+
+
+        function displayChart(withSurplus) {
+            let balance = parseFloat(document.querySelector('.debt-balance').value || 0);
+            let rate = parseFloat(document.querySelector('.debt-rate').value || 0) / 100;
+            let term = parseInt(document.querySelector('.debt-term').value || 0);
+            let surplus = withSurplus ? parseFloat(document.getElementById('monthly-surplus').innerText.replace('$', '') || 0) : 0;
+
+
+            let data = calculateDebtData(balance, rate, term);
+            let surplusData = calculateDebtData(balance, rate, term, surplus);
+
+
+            createChart(data, surplusData);
+        }
+    </script>
+</body>
+</html>
