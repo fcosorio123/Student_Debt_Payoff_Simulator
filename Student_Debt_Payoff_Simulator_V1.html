@@ -74,7 +74,6 @@
 <body>
     <h1>Student Debt Payoff Simulator</h1>
 
-
     <div class="section">
         <table id="debtTable">
             <thead>
@@ -97,15 +96,12 @@
             </tbody>
         </table>
         <button onclick="addRow()">Add Row</button>
-        <small class="note">Note: Please enter your student loan information. This will help us determine your monthly payments. You can add multiple loans, and we will calculate the total monthly payments for you.
-        </small>
-    </br></br>
+        <small class="note">Note: Please enter your student loan information. This will help us determine your monthly payments. You can add multiple loans, and we will calculate the total monthly payments for you.</small>
+        <br/><br/>
         <b><span id="total-monthly-payments">Sum of All Monthly Payments: $0.00</span></b>
     </div>
 
-
     <div class="divider"></div>
-
 
     <div class="section">
         <label for="monthly-income">Expected Monthly Income ($):</label>
@@ -136,11 +132,14 @@
     <div class="section chart-container">
         <canvas id="debtChart" width="800" height="400"></canvas>
     </div>
-
+    <div class="section">
+        <h2>Summary of Analysis</h2>
+        <p id="summary-without-surplus">Loading...</p>
+        <p id="summary-with-surplus">Loading...</p>
+    </div>
 
     <script>
         let debtChart = null;
-
 
         function computeMonthlyPayment(button) {
             const row = button.parentElement.parentElement;
@@ -150,10 +149,8 @@
             const monthlyPayment = (balance * rate) / (1 - Math.pow(1 + rate, -term));
             row.querySelector('.monthly-payment').innerText = `$${monthlyPayment.toFixed(2)}`;
 
-
             sumAllMonthlyPayments();
         }
-
 
         function addRow() {
             const table = document.getElementById('debtTable').getElementsByTagName('tbody')[0];
@@ -167,13 +164,11 @@
             `;
         }
 
-
         function deleteRow(button) {
             const row = button.parentElement.parentElement;
             row.parentElement.removeChild(row);
             sumAllMonthlyPayments();
         }
-
 
         function sumAllMonthlyPayments() {
             let total = 0;
@@ -185,13 +180,11 @@
             updateTotalSpending();
         }
 
-
         function updateIncomeSlider() {
             const incomeInput = document.getElementById('monthly-income');
             document.getElementById('income-slider').value = incomeInput.value;
             computeMonthlySurplus();
         }
-
 
         function updateIncomeInput() {
             const incomeSlider = document.getElementById('income-slider');
@@ -199,20 +192,17 @@
             computeMonthlySurplus();
         }
 
-
         function updateSpendingSlider() {
             const spendingInput = document.getElementById('monthly-spending');
             document.getElementById('spending-slider').value = spendingInput.value;
             updateTotalSpending();
         }
 
-
         function updateSpendingInput() {
             const spendingSlider = document.getElementById('spending-slider');
             document.getElementById('monthly-spending').value = spendingSlider.value;
             updateTotalSpending();
         }
-
 
         function updateTotalSpending() {
             const preSpending = parseFloat(document.getElementById('monthly-spending').value || 0);
@@ -222,7 +212,6 @@
             computeMonthlySurplus();
         }
 
-
         function computeMonthlySurplus() {
             const income = parseFloat(document.getElementById('monthly-income').value || 0);
             const totalSpending = parseFloat(document.getElementById('total-monthly-spending').innerText.replace('$', '') || 0);
@@ -231,7 +220,6 @@
             surplusElement.innerText = `$${surplus.toFixed(2)}`;
             surplusElement.style.color = surplus < 0 ? 'red' : 'black';
         }
-
 
         function createChart(data, surplusData) {
             const ctx = document.getElementById('debtChart').getContext('2d');
@@ -267,22 +255,25 @@
             });
         }
 
-
         function calculateDebtData(balance, rate, term, extraPayment = 0) {
             let monthlyRate = rate / 12;
             let data = { balance: [balance], term: term }; // Start with the initial balance
             let currentBalance = balance;
-
+            let totalInterest = 0;
 
             for (let month = 1; month <= term; month++) {
                 let interest = currentBalance * monthlyRate;
+                totalInterest += interest;
                 let principal = (balance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -term)) - interest + extraPayment;
                 currentBalance = currentBalance - principal;
                 data.balance.push(currentBalance > 0 ? currentBalance : 0);
             }
+
+            data.totalInterest = totalInterest.toFixed(2);
+            data.finalBalance = currentBalance.toFixed(2);
+
             return data;
         }
-
 
         function displayChart(withSurplus) {
             let balance = parseFloat(document.querySelector('.debt-balance').value || 0);
@@ -290,13 +281,54 @@
             let term = parseInt(document.querySelector('.debt-term').value || 0);
             let surplus = withSurplus ? parseFloat(document.getElementById('monthly-surplus').innerText.replace('$', '') || 0) : 0;
 
-
             let data = calculateDebtData(balance, rate, term);
             let surplusData = calculateDebtData(balance, rate, term, surplus);
 
-
             createChart(data, surplusData);
+
+            if (withSurplus) {
+                document.getElementById('summary-with-surplus').innerText = summarizeDebtData(surplusData, "with surplus");
+            } else {
+                document.getElementById('summary-without-surplus').innerText = summarizeDebtData(data, "without surplus");
+            }
         }
+
+        function summarizeDebtData(data, type) {
+            const initialBalance = parseFloat(data.balance[0]).toFixed(2);
+            const finalBalance = data.finalBalance;
+            const months = data.term;
+            const totalInterest = data.totalInterest;
+
+            const totalMonthlyPayments = document.getElementById('total-monthly-payments').innerText;
+            const expectedMonthlyIncome = document.getElementById('monthly-income').value;
+            const expectedMonthlySpending = document.getElementById('monthly-spending').value;
+            const totalMonthlySpending = document.getElementById('total-monthly-spending').innerText;
+            const monthlySurplus = document.getElementById('monthly-surplus').innerText;
+
+            return `
+                Summary ${type}: Starting with an initial balance of $${initialBalance}, the debt will be paid off over ${months} months. 
+                The final balance will be $${finalBalance}, with a total interest paid of $${totalInterest}.
+                Additional details include:
+                - ${totalMonthlyPayments}
+                - Expected Monthly Income: $${expectedMonthlyIncome}
+                - Expected Monthly Spending: $${expectedMonthlySpending}
+                - Expected Total Monthly Spending: ${totalMonthlySpending}
+                - Monthly Surplus: ${monthlySurplus}
+            `;
+        }
+    </script>
+
+    <script>
+        window.embeddedChatbotConfig = {
+            chatbotId: "BYPT1aF6TKz1BDEcq4zkw",
+            domain: "www.chatbase.co"
+        }
+    </script>
+    <script
+        src="https://www.chatbase.co/embed.min.js"
+        chatbotId="BYPT1aF6TKz1BDEcq4zkw"
+        domain="www.chatbase.co"
+        defer>
     </script>
 </body>
 </html>
