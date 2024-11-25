@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Credit Score Simulator</title>
+    <title>Credit Score Scenario Planner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,7 +12,7 @@
         }
 
         .container {
-            width: 500px;
+            width: 600px;
             max-width: 90%;
             margin: 50px auto;
             background-color: #ffffff;
@@ -64,10 +64,9 @@
             text-align: center;
         }
 
-        #projected-score {
-            font-size: 24px;
-            color: #2980b9;
-            font-weight: bold;
+        #chart-container {
+            width: 100%;
+            margin-top: 30px;
         }
 
         /* Tooltip Styles */
@@ -98,70 +97,73 @@
         .tooltip:hover::after {
             opacity: 1;
         }
-
-        /* Chart Container */
-        #chart-container {
-            width: 100%;
-            margin-top: 30px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Credit Score Simulator</h1>
-        <form id="credit-form">
+        <h1>Credit Score Scenario Planner</h1>
+        <form id="scenario-form">
             <div class="form-group">
                 <label for="current-score">Current Credit Score:</label>
-                <input type="number" id="current-score" name="currentScore" min="300" max="850" value="650" required>
+                <input type="number" id="current-score" min="300" max="850" value="650" required>
             </div>
             <div class="form-group">
-                <label for="payment-history">Payment History Impact:
-                    <span class="tooltip" data-tooltip="Your payment history accounts for 35% of your FICO score. Making payments on time improves your score.">?</span>
+                <label for="target-score">Target Credit Score:</label>
+                <input type="number" id="target-score" min="300" max="850" value="720" required>
+            </div>
+            <div class="form-group">
+                <label for="timeframe">Timeframe (Months):</label>
+                <input type="number" id="timeframe" min="1" max="60" value="12" required>
+            </div>
+            <h2>Adjustable Variables</h2>
+            <div class="form-group">
+                <label for="payment-history">Payment History:
+                    <span class="tooltip" data-tooltip="Making timely payments improves your score.">?</span>
                 </label>
-                <select id="payment-history" name="paymentHistory">
+                <select id="payment-history">
                     <option value="0">No Change</option>
-                    <option value="-50">Missed Payment</option>
-                    <option value="20">Made All Payments On Time</option>
+                    <option value="20">All Payments On Time</option>
+                    <option value="-50">Missed Payments</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="credit-utilization">Credit Utilization Impact:
-                    <span class="tooltip" data-tooltip="Credit utilization is 30% of your score. Keeping utilization below 30% is recommended.">?</span>
+                <label for="credit-utilization">Credit Utilization:
+                    <span class="tooltip" data-tooltip="Lower utilization ratios improve your score.">?</span>
                 </label>
-                <select id="credit-utilization" name="creditUtilization">
+                <select id="credit-utilization">
                     <option value="0">No Change</option>
-                    <option value="-30">Utilization > 30%</option>
-                    <option value="10">Utilization < 10%</option>
+                    <option value="15">Utilization Below 10%</option>
+                    <option value="-30">Utilization Above 30%</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="new-credit">New Credit Impact:
-                    <span class="tooltip" data-tooltip="Opening new credit accounts can affect your score due to hard inquiries.">?</span>
+                <label for="new-credit">New Credit Applications:
+                    <span class="tooltip" data-tooltip="Applying for new credit can temporarily lower your score.">?</span>
                 </label>
-                <select id="new-credit" name="newCredit">
-                    <option value="0">No New Credit</option>
-                    <option value="-10">Applied for New Credit Card</option>
-                    <option value="5">Did Not Apply for New Credit</option>
+                <select id="new-credit">
+                    <option value="0">No New Applications</option>
+                    <option value="-10">Applied for New Credit</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="credit-history">Length of Credit History Impact:
-                    <span class="tooltip" data-tooltip="A longer credit history improves your score. It's 15% of your FICO score.">?</span>
+                <label for="credit-history">Length of Credit History:
+                    <span class="tooltip" data-tooltip="Longer credit history positively affects your score.">?</span>
                 </label>
-                <select id="credit-history" name="creditHistory">
+                <select id="credit-history">
                     <option value="0">No Change</option>
-                    <option value="-20">Account Age < 1 Year</option>
-                    <option value="10">Account Age > 2 Years</option>
+                    <option value="10">Account Age Increases</option>
                 </select>
             </div>
-            <button type="submit">Simulate</button>
+            <button type="submit">Generate Action Plan</button>
         </form>
         <div id="result" style="display: none;">
-            <h2>Simulation Result</h2>
-            <p>Your projected credit score is: <span id="projected-score"></span></p>
+            <h2>Action Plan</h2>
+            <p>Your projected credit score after <span id="timeframe-display"></span> months is <strong><span id="projected-score"></span></strong>.</p>
+            <p>To reach your target score of <strong><span id="target-score-display"></span></strong>, you need to:</p>
+            <ul id="action-plan"></ul>
         </div>
         <div id="chart-container" style="display: none;">
-            <canvas id="scoreChart" width="400" height="200"></canvas>
+            <canvas id="scoreChart"></canvas>
         </div>
     </div>
 
@@ -169,38 +171,82 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        document.getElementById('credit-form').addEventListener('submit', function(e) {
+        document.getElementById('scenario-form').addEventListener('submit', function(e) {
             e.preventDefault();
 
             // Retrieve user inputs
             let currentScore = parseInt(document.getElementById('current-score').value);
+            let targetScore = parseInt(document.getElementById('target-score').value);
+            let timeframe = parseInt(document.getElementById('timeframe').value);
+
             let paymentHistoryImpact = parseInt(document.getElementById('payment-history').value);
             let creditUtilizationImpact = parseInt(document.getElementById('credit-utilization').value);
             let newCreditImpact = parseInt(document.getElementById('new-credit').value);
             let creditHistoryImpact = parseInt(document.getElementById('credit-history').value);
 
-            // Calculate projected score
+            // Total impact per month
             let totalImpact = paymentHistoryImpact + creditUtilizationImpact + newCreditImpact + creditHistoryImpact;
-            let projectedScore = currentScore + totalImpact;
 
-            // Ensure the score stays within valid range
-            if (projectedScore > 850) projectedScore = 850;
-            if (projectedScore < 300) projectedScore = 300;
-
-            // Display the result
-            document.getElementById('projected-score').textContent = projectedScore;
-            document.getElementById('result').style.display = 'block';
-
-            // Simulate score over 12 months
+            // Calculate projected score over time
             let scoreHistory = [];
             let score = currentScore;
-            for (let month = 1; month <= 12; month++) {
-                // Apply impacts over time
-                score += totalImpact / 12;
+            let monthlyImpact = totalImpact / timeframe;
+
+            for (let month = 1; month <= timeframe; month++) {
+                score += monthlyImpact;
                 if (score > 850) score = 850;
                 if (score < 300) score = 300;
-                scoreHistory.push(Math.round(score));
+                scoreHistory.push({ month: month, score: Math.round(score) });
             }
+
+            let finalScore = Math.round(score);
+
+            // Display results
+            document.getElementById('projected-score').textContent = finalScore;
+            document.getElementById('target-score-display').textContent = targetScore;
+            document.getElementById('timeframe-display').textContent = timeframe;
+            document.getElementById('result').style.display = 'block';
+
+            // Generate action plan
+            let actionPlan = [];
+
+            if (paymentHistoryImpact > 0) {
+                actionPlan.push('Make all payments on time.');
+            } else if (paymentHistoryImpact < 0) {
+                actionPlan.push('Avoid missing payments.');
+            }
+
+            if (creditUtilizationImpact > 0) {
+                actionPlan.push('Reduce credit card balances to lower utilization.');
+            } else if (creditUtilizationImpact < 0) {
+                actionPlan.push('Avoid increasing credit card balances.');
+            }
+
+            if (newCreditImpact < 0) {
+                actionPlan.push('Limit new credit applications.');
+            }
+
+            if (creditHistoryImpact > 0) {
+                actionPlan.push('Keep old accounts open to increase credit history length.');
+            }
+
+            let actionPlanList = document.getElementById('action-plan');
+            actionPlanList.innerHTML = '';
+            actionPlan.forEach(function(action) {
+                let li = document.createElement('li');
+                li.textContent = action;
+                actionPlanList.appendChild(li);
+            });
+
+            // Display chart
+            displayChart(scoreHistory, targetScore, timeframe);
+        });
+
+        function displayChart(scoreHistory, targetScore, timeframe) {
+            // Prepare data for chart
+            let labels = scoreHistory.map(item => `Month ${item.month}`);
+            let data = scoreHistory.map(item => item.score);
+            let targetData = Array(timeframe).fill(targetScore);
 
             // Remove existing chart if any
             if (window.myChart instanceof Chart) {
@@ -212,17 +258,29 @@
             window.myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: [...Array(12).keys()].map(i => `Month ${i + 1}`),
-                    datasets: [{
-                        label: 'Credit Score Over Time',
-                        data: scoreHistory,
-                        borderColor: 'rgba(41, 128, 185, 1)',
-                        backgroundColor: 'rgba(41, 128, 185, 0.2)',
-                        fill: true,
-                        tension: 0.1,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }]
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Projected Credit Score',
+                            data: data,
+                            borderColor: 'rgba(41, 128, 185, 1)',
+                            backgroundColor: 'rgba(41, 128, 185, 0.2)',
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Target Credit Score',
+                            data: targetData,
+                            borderColor: 'rgba(231, 76, 60, 1)',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            fill: false,
+                            borderDash: [10,5],
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        }
+                    ]
                 },
                 options: {
                     scales: {
@@ -242,13 +300,10 @@
                         }
                     },
                     plugins: {
-                        legend: {
-                            display: false
-                        },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `Credit Score: ${context.parsed.y}`;
+                                    return `${context.dataset.label}: ${context.parsed.y}`;
                                 }
                             }
                         }
@@ -256,25 +311,9 @@
                 }
             });
 
-            // Display the chart container
             document.getElementById('chart-container').style.display = 'block';
-
-            // Scroll to the result
-            document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
-        });
-
-        // Load saved current score from local storage
-        window.onload = function() {
-            let savedScore = localStorage.getItem('currentScore');
-            if (savedScore) {
-                document.getElementById('current-score').value = savedScore;
-            }
-        };
-
-        // Save current score to local storage when it changes
-        document.getElementById('current-score').addEventListener('input', function() {
-            localStorage.setItem('currentScore', this.value);
-        });
+            document.getElementById('chart-container').scrollIntoView({ behavior: 'smooth' });
+        }
     </script>
 </body>
 </html>
